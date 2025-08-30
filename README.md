@@ -145,6 +145,11 @@ RUN deno cache main.ts
 
 CMD ["run", "--allow-net", "--allow-env", "main.ts"]
 ```
+## 免责声明
+- 本项目与LongCat官方无关
+- 使用者需要自行获取Cookie并承担使用责任
+- 项目仅用于学习和技术交流目的，禁止用于商业用途和滥用。
+- 滥用可能导致账户无法正常使用。
 
 ## 注意事项
 
