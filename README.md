@@ -46,28 +46,41 @@ reverse longcat into openai
 - Docker 和 Docker Compose
 
 ### 安装和运行
-
-#### 方式一：原版运行
-使用worker
-main-old-1.0.ts
-worker-old-1.0.js
-这2个文件即可，其他删除
+#### 运行准备
 1. 克隆或下载项目文件
 2. 配置环境变量（可选）
-3. 运行服务：
+3. 自行选合适的部署方式
+
+#### 方式一
+##### 本地 deno 环境
 
 ```bash
 # 直接运行
-deno run --allow-net --allow-env main.ts
+deno run --allow-net --allow-env deno.ts
 
 # 或指定端口运行
-deno run --allow-net --allow-env main.ts --port=8000
+deno run --allow-net --allow-env deno.ts --port=8000
 ```
 
-#### 方式二：Docker 部署（推荐）
+#### 方式二
+##### deno deploy 边缘网络
+新建playground，复制deno.ts代码并粘贴，保存运行设置环境变量即可
+具体如下：
+1. 将代码推送到 GitHub 仓库
+2. 连接到 [Deno Deploy](https://deno.com/deploy)
+3. 配置环境变量
+4. 部署项目
 
-1. 克隆项目
-2. 配置环境变量：
+#### 方式三
+##### 基于 deno 运行时 Docker 部署
+修改Dockerfile-Deno为Dockerfile，自行构建镜像设置环境变量并运行
+
+#### 方式四
+##### cloudflare worker
+cf新建worker，复制worker.js代码并粘贴，保存并设置环境变量即可
+
+#### 方式五
+##### 基于 Bun 运行时 Docker 部署
 
 ```bash
 # 复制环境变量模板
@@ -125,7 +138,7 @@ deno run --allow-net --allow-env main.ts
 curl http://localhost:8000/v1/models
 ```
 
-### 🆕 监控接口
+### 🆕 监控接口（目前仅bun.ts支持该接口）
 
 #### 获取 Cookie 状态
 
@@ -250,29 +263,8 @@ Authorization: Bearer your_cookie_value
 ```http
 Authorization: Bearer cookie1,cookie2,cookie3
 ```
+特别说明：当Bearer null，false，none其中任意一个时，支持使用内置的cookie环境变量
 
-## 部署
-
-### 部署到 Deno Deploy
-
-1. 将代码推送到 GitHub 仓库
-2. 连接到 [Deno Deploy](https://deno.com/deploy)
-3. 配置环境变量
-4. 部署项目
-
-### 其他部署方式
-
-也可以使用 Docker 或其他支持 Deno 的平台部署：
-
-```dockerfile
-FROM denoland/deno:latest
-
-WORKDIR /app
-COPY main.ts .
-RUN deno cache main.ts
-
-CMD ["run", "--allow-net", "--allow-env", "main.ts"]
-```
 ## 免责声明
 - 本项目与LongCat官方无关
 - 使用者需要自行获取Cookie并承担使用责任
@@ -281,7 +273,10 @@ CMD ["run", "--allow-net", "--allow-env", "main.ts"]
 
 ## 🆕 负载均衡策略
 
-### 轮询机制
+### 特别说明
+目前个人觉得deno.ts完全够用，故暂不将更加智能化的cookie轮询禁用策略机制兼容到deno.ts中，除bun.ts代码，其他均采用随机轮询策略，如需体验更完善功能，可使用bun.ts运行，或自行参考bun.ts修改deno.ts或worker.ts代码，不过如果你尝试合入智能化cookie轮询及禁用策略，并经过测试没问题后，欢迎PR改进项目
+
+### 轮询机制（bun.ts）
 
 1. **顺序使用**: Cookie1 → Cookie2 → Cookie3 → Cookie1 → ...
 2. **使用次数**: 每个 Cookie 连续使用 3 次
@@ -310,9 +305,10 @@ CMD ["run", "--allow-net", "--allow-env", "main.ts"]
 2. **延迟机制**: 会话删除前会有 3-5 秒的随机延迟，避免请求过于频繁
 3. **cookie获取**: 目前cookie只能登陆账号后，从cookie中获取passport_token_key，故直接与你的美团账号挂钩，滥用可能会影响账号使用
 4. **Cookie 安全**: 不要公开分享你的 Cookie 信息
-5. **模型支持**: 目前支持 `LongCat` 和 `LongCat-Search（可搜索美团）` 两种模型
-6. **Docker 部署**: 推荐使用 Docker 部署，便于管理和监控
+5. **模型支持**: 目前支持 `LongCat` 和 `LongCat-Search（支持搜索）` 两种模型
+6. **Docker 部署**: 支持使用 Docker 部署，便于管理和监控
 
 ## 开发与贡献
 
-欢迎提交 Issue 和 Pull Request 来改进这个项目。
+欢迎提交 Issue 和 Pull Request 来改进这个项目
+感谢参与PR的贡献者
