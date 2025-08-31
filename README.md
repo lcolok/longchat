@@ -162,3 +162,6 @@ CMD ["run", "--allow-net", "--allow-env", "main.ts"]
 ## 开发与贡献
 
 欢迎提交 Issue 和 Pull Request 来改进这个项目。
+
+感[printlndarling](https://github.com/printlndarling)
+提交的PR修正文件名，以及支持CF worker部署的worker.js代码
