@@ -20,4 +20,4 @@ USER node
 EXPOSE 8000
 
 # 启动命令
-CMD ["bun", "run", "main.ts"]
+CMD ["bun", "run", "bun.ts"]
