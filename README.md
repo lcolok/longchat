@@ -48,7 +48,10 @@ reverse longcat into openai
 ### 安装和运行
 
 #### 方式一：原版运行
-
+使用worker
+main-old-1.0.ts
+worker-old-1.0.js
+这2个文件即可，其他删除
 1. 克隆或下载项目文件
 2. 配置环境变量（可选）
 3. 运行服务：
