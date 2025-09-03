@@ -35,6 +35,7 @@ interface CookieInfo {
 }
 
 class CookieRoundRobin {
+  static globalInstance: CookieRoundRobin | null = null;
   private cookies: CookieInfo[] = [];
   private currentIndex = 0;
   private requestsPerCookie = 3; // 每个 Cookie 请求 3 次
@@ -43,6 +44,7 @@ class CookieRoundRobin {
 
   constructor(cookies: string[]) {
     this.initializeCookies(cookies);
+    CookieRoundRobin.globalInstance = this;
   }
 
   private initializeCookies(cookies: string[]) {
@@ -56,6 +58,36 @@ class CookieRoundRobin {
       permanentlyDisabled: false,
       disabledAt: 0
     }));
+  }
+
+  // 热更新Cookie的方法
+  public reloadCookies(newCookies: string[]): void {
+    console.log(`[热更新] 正在更新Cookie，从${this.cookies.length}个更新到${newCookies.length}个`);
+    
+    // 保存旧的统计信息
+    const oldStats = new Map<string, Partial<CookieInfo>>();
+    this.cookies.forEach(info => {
+      oldStats.set(info.cookie, {
+        successCount: info.successCount,
+        failureCount: info.failureCount,
+        requestCount: info.requestCount
+      });
+    });
+
+    // 重新初始化Cookie
+    this.initializeCookies(newCookies);
+    
+    // 恢复统计信息（如果Cookie相同）
+    this.cookies.forEach(info => {
+      const oldStat = oldStats.get(info.cookie);
+      if (oldStat) {
+        info.successCount = oldStat.successCount || 0;
+        info.failureCount = oldStat.failureCount || 0;
+        info.requestCount = oldStat.requestCount || 0;
+      }
+    });
+    
+    console.log(`[热更新] Cookie热更新完成，当前活跃Cookie: ${this.cookies.filter(c => !c.permanentlyDisabled).length}个`);
   }
 
   // 获取下一个 Cookie（轮询）
@@ -211,7 +243,7 @@ async function createSessionWithRetry(cookies: string[], userAgent: string): Pro
       
       // 记录失败
       if (cookieRoundRobin) {
-        cookieRoundRobin.recordFailure(cookie);
+        cookieRoundRobin.recordRotationFailure(cookie);
       }
       
       // 如果不是最后一个 Cookie，继续尝试下一个
@@ -687,6 +719,103 @@ async function handleRequest(request: Request): Promise<Response> {
         headers: { "Content-Type": "application/json" }
       });
     }
+  }
+
+  // 热更新API端点
+  if (url.pathname === "/reload" && request.method === "POST") {
+    try {
+      // 验证认证
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader !== 'Bearer internal-service') {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Unauthorized' 
+        }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const body = await request.json();
+      
+      if (body.type !== 'cookies') {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Unsupported reload type' 
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 解析Cookie字符串
+      const cookieString = body.cookies;
+      const newCookies = cookieString.split(',').map((c: string) => c.trim()).filter((c: string) => c.length > 0);
+      
+      if (newCookies.length === 0) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'No valid cookies provided' 
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 执行热更新
+      if (CookieRoundRobin.globalInstance) {
+        CookieRoundRobin.globalInstance.reloadCookies(newCookies);
+        
+        // 更新环境变量（可选）
+        process.env.AUTH_COOKIES = cookieString;
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Cookie热更新完成',
+          reloadedAt: new Date().toISOString(),
+          cookiesCount: newCookies.length
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Cookie管理器未初始化' 
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+    } catch (error) {
+      console.error('[热更新] 失败:', error);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: (error as Error).message 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
+  // 健康检查增强
+  if (url.pathname === "/health" && request.method === "GET") {
+    const stats = CookieRoundRobin.globalInstance ? {
+      totalCookies: CookieRoundRobin.globalInstance.cookies?.length || 0,
+      activeCookies: CookieRoundRobin.globalInstance.cookies?.filter(c => !c.permanentlyDisabled).length || 0
+    } : null;
+    
+    return new Response(JSON.stringify({
+      status: "healthy",
+      features: {
+        hotReload: true,
+        cookiesLastUpdate: new Date().toISOString()
+      },
+      cookieStats: stats
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // 404 for other routes
